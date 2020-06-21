@@ -8,9 +8,9 @@
 #       format_version: '1.5'
 #       jupytext_version: 1.5.0
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python (fastai)
 #     language: python
-#     name: python3
+#     name: fastai
 # ---
 
 import os
@@ -25,6 +25,9 @@ from torchvision import transforms
 from tqdm import tqdm
 import torch.nn as nn
 import torch.nn.functional as F
+
+import sys
+sys.version
 
 
 class MyDataset(Dataset):
@@ -156,7 +159,7 @@ class NeuronalNetwork(nn.Module):
         self.conv5 = nn.Conv2d(256, 256,3, padding=1)
 
         self.fc1 = nn.Linear(256*8*8 , 120)  # 8*8 from image dimension after 5 Max_pooling and input size 256x256
-        self.out_layer = nn.Linear(120, 1)
+        self.out_layer = nn.Linear(120, 2)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -185,18 +188,44 @@ class NeuronalNetwork(nn.Module):
 
 256*64*64
 
+loss = nn.CrossEntropyLoss()
+input = torch.randn(3, 5, requires_grad=True)
+target = torch.empty(3, dtype=torch.long).random_(5)
+output = loss(input, target)
+output.backward()
+
 
 # +
-def train(use_gpu=False): # if torch.cuda.is_available(), use gpu to speed up training
+def batch_accuracy(prediction, label):
+    #whats input dimension prediction, label
+    #torch.sum(prediction == label)/
+    k=np.sum(list(label.size()))
+    return torch.sum(prediction == label)*100/k  #()[0]  /label.size()
+
+def class_label(prediction):
+    #whats input dimension prediction
+    #so here we have values between 0 and 1 for each label and want to set the prediction to 100% label where the prediction has 
+    #higest prob?
+    #eg if prediction is [0,0,0,0.2,0.2,0.6,0,0,0,0] than this function should return 5 as label
+    #but is input prediction array like or tensor?
     
+    return torch.max(prediction, 1)[1]
+
+
+
+# -
+
+def train(use_gpu=False): # if torch.cuda.is_available(), use gpu to speed up training
+    use_gpu=False
     # Here we instanciate our model. The weights of the model are automatically
     # initialized by pytorch
     P = NeuronalNetwork().float()
     #criterion = nn.Sigmoid()
+    #criterion = nn.BCELoss # Binary Cross Entropy Loss
     criterion = nn.CrossEntropyLoss()
     #optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
     optimizer = torch.optim.Adam(P.parameters(), lr=0.0001) #Dl, lr=0.0001
-    
+
     Data = DataLoader(TrainData, batch_size=5)
     #Dltest= 
     if use_gpu:
@@ -208,13 +237,12 @@ def train(use_gpu=False): # if torch.cuda.is_available(), use gpu to speed up tr
             if use_gpu:
                 example = example.cuda()
                 label = label.cuda()
-            
+
             optimizer.zero_grad()
-            
+
             prediction = P(example.float()) #[4]
-            print(prediction, label)
             loss = criterion(prediction, label)
-            
+
             # Here pytorch applies backpropagation for us completely
             # automatically!!! That is quite awesome!
             loss.backward()
@@ -223,14 +251,15 @@ def train(use_gpu=False): # if torch.cuda.is_available(), use gpu to speed up tr
             # as specified by the optimizer and the learning rate.
             optimizer.step()
 
-            #if (step % 375) == 0:
+            if (step % 375) == 0:
                 # Your code here
-             #   acc = batch_accuracy(class_label(prediction), label)
-             #   tqdm.write('Batch Accuracy: {}%, Loss: {}'.format(acc, loss))
-            break
-
+                acc = batch_accuracy(class_label(prediction), label)
+                tqdm.write('Batch Accuracy: {}%, Loss: {}'.format(acc, loss))
 train()
-# -
+
+
+
+
 
 plt.imshow()
 
